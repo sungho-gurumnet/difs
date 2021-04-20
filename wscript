@@ -161,7 +161,7 @@ def build(bld):
 
 
     bld.recurse('tests')
-    # bld.recurse('tools')
+    bld.recurse('tools')
     bld.recurse('examples')
 
     bld.install_files('${SYSCONFDIR}/ndn', 'repo-ng.conf.sample')
