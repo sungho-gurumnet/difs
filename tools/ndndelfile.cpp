@@ -7,11 +7,11 @@
 #include <ndn-cxx/security/signing-helpers.hpp>
 #include <ndn-cxx/util/scheduler.hpp>
 
-#include "ndndelfile.hpp"
-
 #include <iostream>
 
 #include <boost/lexical_cast.hpp>
+
+#include <difs.hpp>
 
 namespace repo {
 
@@ -56,20 +56,6 @@ NdnDelFile::deleteData(const Name& name)
     bind(&NdnDelFile::onDeleteCommandResponse, this, _1, _2),
     bind(&NdnDelFile::onDeleteCommandTimeout, this, _1),  // Nack
     bind(&NdnDelFile::onDeleteCommandTimeout, this, _1));
-}
-
-void
-NdnDelFile::onTimeout(const Interest& interest)
-{
-  if (m_retryCount++ < MAX_RETRY) {
-    deleteData(Name(m_dataName));
-    if (m_verbose) {
-      std::cerr << "TIMEOUT: retransmit interest for " << interest.getName() << std::endl;
-    }
-  } else {
-    std::cerr << "TIMEOUT: last interest sent" << std::endl
-    << "TIMEOUT: abort fetching after " << MAX_RETRY << " times of retry" << std::endl;
-  }
 }
 
 
