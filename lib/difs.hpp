@@ -3,11 +3,9 @@
 
 #include <iostream>
 #include <ndn-cxx/security/command-interest-signer.hpp>
-
-#include "repo-command-parameter.hpp"
 #include <ndn-cxx/face.hpp>
 
-#include "manifest/manifest.hpp"
+// #include "manifest/manifest.hpp"
 
 namespace difs {
 
@@ -35,80 +33,80 @@ public:
 
 private:
   void
-  onTimeout(const ndn::Interest& interest);
+  onDeleteCommandTimeout(const ndn::Interest& interest);
 
   void
-  onNack(const ndn::Interest& interest);
+  onDeleteCommandNack(const ndn::Interest& interest);
 
-  void
-  onRegisterSuccess(const ndn::Name& prefix);
+  // void
+  // onRegisterSuccess(const ndn::Name& prefix);
 
-  void
-  onRegisterFailed(const ndn::Name& prefix, const std::string& reason);
+  // void
+  // onRegisterFailed(const ndn::Name& prefix, const std::string& reason);
 
-  ndn::Interest
-  generateCommandInterest(const ndn::Name& commandPrefix, const std::string& command,
-    const repo::RepoCommandParameter& commandParameter);
+  // ndn::Interest
+  // generateCommandInterest(const ndn::Name& commandPrefix, const std::string& command,
+  //   const repo::RepoCommandParameter& commandParameter);
 
   void
   onDeleteCommandResponse(const ndn::Interest& interest, const ndn::Data& data);
 
-  void
-  sendManifest(const ndn::Name& prefix, const ndn::Interest& interest, size_t blockSize, size_t m_bytes);
+  // void
+  // sendManifest(const ndn::Name& prefix, const ndn::Interest& interest, size_t blockSize, size_t m_bytes);
 
-  void
-  onPutFileInterest(const ndn::Name& prefix, const ndn::Interest& interest);
+  // void
+  // onPutFileInterest(const ndn::Name& prefix, const ndn::Interest& interest);
 
-  void
-  createManifestData(const ndn::Name& prefix, const ndn::Interest& interest);
+  // void
+  // createManifestData(const ndn::Name& prefix, const ndn::Interest& interest);
 
-  void
-  getFileFetchData(const repo::Manifest& manifest, uint64_t segmentId);
+  // void
+  // getFileFetchData(const repo::Manifest& manifest, uint64_t segmentId);
 
-  ndn::Name
-  getFileSelectRepoName(const repo::Manifest& manifest, uint64_t segmentId);
+  // ndn::Name
+  // getFileSelectRepoName(const repo::Manifest& manifest, uint64_t segmentId);
 
-  void
-  getFileRun();
+  // void
+  // getFileRun();
 
-  void
-  getFileOnManifest(const ndn::Interest& interest, const ndn::Data& data);
+  // void
+  // getFileOnManifest(const ndn::Interest& interest, const ndn::Data& data);
 
-  void
-  getFileOnManifestTimeout(const ndn::Interest& interest);
+  // void
+  // getFileOnManifestTimeout(const ndn::Interest& interest);
 
-  void
-  getFileOnUnversionedData(const ndn::Interest& interest, const ndn::Data& data);
+  // void
+  // getFileOnUnversionedData(const ndn::Interest& interest, const ndn::Data& data);
 
-  bool 
-  getFileVerifyData(const ndn::Data& data);
+  // bool 
+  // getFileVerifyData(const ndn::Data& data);
 
-  void
-  getFileReadData(const ndn::Data& data);
+  // void
+  // getFileReadData(const ndn::Data& data);
 
-  void
-  getFileFetchNextData();
+  // void
+  // getFileFetchNextData();
 
-  void
-  getFileOnTimeout(const ndn::Interest& interest);
+  // void
+  // getFileOnTimeout(const ndn::Interest& interest);
 
-  void
-  signData(ndn::Data& data, bool useDigestSha256);
+  // void
+  // signData(ndn::Data& data, bool useDigestSha256);
 
-  void
-  prepareNextData(uint64_t referenceSegmentNo, size_t blockSize);
+  // void
+  // prepareNextData(uint64_t referenceSegmentNo, size_t blockSize);
 
-  void
-  signFirstData(ndn::Data& data);
+  // void
+  // signFirstData(ndn::Data& data);
 
-  void
-  putFilestartCheckCommand();
+  // void
+  // putFilestartCheckCommand();
 
-  void
-  putFileonCheckCommandResponse(const ndn::Interest& interest, const ndn::Data& data);
+  // void
+  // putFileonCheckCommandResponse(const ndn::Interest& interest, const ndn::Data& data);
 
-  void
-  startInsertCommand(const ndn::Name& data_name);
+  // void
+  // startInsertCommand(const ndn::Name& data_name);
 
 private:
   ndn::Face m_face;

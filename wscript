@@ -101,7 +101,7 @@ def build(bld):
         ),
         use='ndn-difs-mm-objects version BOOST OPENSSL SQLITE3 ATOMIC RT PTHREAD NDN_CXX',
         includes='src',
-        export_includes='.',
+        export_includes='lib',
         install_path='${LIBDIR}')
 
     if bld.env.enable_shared:
@@ -159,10 +159,14 @@ def build(bld):
          EXTRA_FRAMEWORKS=EXTRA_FRAMEWORKS)
     #######################################################################################################
 
+    if bld.env.WITH_TESTS:
+        bld.recurse('tests')
 
-    bld.recurse('tests')
-    bld.recurse('tools')
-    bld.recurse('examples')
+    if bld.env.WITH_TOOLS:
+        bld.recurse('tools')
+
+    if bld.env.WITH_EXAMPLES:
+        bld.recurse('examples')
 
     bld.install_files('${SYSCONFDIR}/ndn', 'repo-ng.conf.sample')
 

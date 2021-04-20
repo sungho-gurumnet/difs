@@ -36,31 +36,31 @@ using namespace repo;
 static const int MAX_RETRY = 3;
 
 void
-DIFS::onNack(const Interest& interest)
+DIFS::onDeleteCommandNack(const Interest& interest)
 {
-  // if (m_retryCount++ < MAX_RETRY) {
-  //   deleteData(Name(m_dataName));
-  //   if (m_verbose) {
-  //     std::cerr << "TIMEOUT: retransmit interest for " << interest.getName() << std::endl;
-  //   }
-  // } else {
-    std::cerr << "TIMEOUT: last interest sent" << std::endl
-    << "TIMEOUT: abort fetching after " << MAX_RETRY << " times of retry" << std::endl;
-  // }
+  if (m_retryCount++ < MAX_RETRY) {
+    deleteFile(interest.getName());
+    if (m_verbose) {
+      std::cerr << "NACK: retransmit interest for " << interest.getName() << std::endl;
+    }
+  } else {
+    std::cerr << "NACK: last interest sent" << std::endl
+    << "NACK: abort fetching after " << MAX_RETRY << " times of retry" << std::endl;
+  }
 }
 
 void
-DIFS::onTimeout(const Interest& interest)
+DIFS::onDeleteCommandTimeout(const Interest& interest)
 {
-  // if (m_retryCount++ < MAX_RETRY) {
-  //   deleteData(Name(m_dataName));
-  //   if (m_verbose) {
-  //     std::cerr << "TIMEOUT: retransmit interest for " << interest.getName() << std::endl;
-  //   }
-  // } else {
+  if (m_retryCount++ < MAX_RETRY) {
+    deleteFile(interest.getName());
+    if (m_verbose) {
+      std::cerr << "TIMEOUT: retransmit interest for " << interest.getName() << std::endl;
+    }
+  } else {
     std::cerr << "TIMEOUT: last interest sent" << std::endl
     << "TIMEOUT: abort fetching after " << MAX_RETRY << " times of retry" << std::endl;
-  // }
+  }
 }
 
 void
@@ -88,11 +88,26 @@ DIFS::deleteFile(const Name& data_name)
   parameters.setName(data_name);
 
   // TODO: send delete command interest
-  ndn::Interest commandInterest = generateCommandInterest(m_common_name, "delete", parameters);
+  // ndn::Interest commandInterest = generateCommandInterest(m_common_name, "delete", parameters);
+
+  Name cmd = m_common_name;
+  cmd.append("delete")
+    .append(parameters.wireEncode());
+
+  ndn::Interest commandInterest = m_cmdSigner.makeCommandInterest(cmd);
+
+  commandInterest.setInterestLifetime(m_interestLifetime);
+  commandInterest.setMustBeFresh(true);
   m_face.expressInterest(commandInterest,
                 std::bind(&DIFS::onDeleteCommandResponse, this, _1, _2),
-                         std::bind(&DIFS::onNack, this, _1), // Nack
-                         std::bind(&DIFS::onTimeout, this, _1));
+                         std::bind(&DIFS::onDeleteCommandNack, this, _1), // Nack
+                         std::bind(&DIFS::onDeleteCommandTimeout, this, _1));
+}
+
+void
+DIFS::run()
+{
+  m_face.processEvents(m_timeout);
 }
 }
 
@@ -111,20 +126,6 @@ DIFS::deleteFile(const Name& data_name)
 //                            bind(&DIFS::onRegisterFailed, this, _1, _2));
 // }
 
-// ndn::Interest
-// DIFS::generateCommandInterest(const ndn::Name& commandPrefix, const std::string& command,
-//                                     const RepoCommandParameter& commandParameter)
-// {
-//   Name cmd = commandPrefix;
-//   cmd.append(command)
-//     .append(commandParameter.wireEncode());
-
-//   ndn::Interest interest = m_cmdSigner.makeCommandInterest(cmd);
-
-//   interest.setInterestLifetime(m_interestLifetime);
-//   interest.setMustBeFresh(true);
-//   return interest;
-// }
 
 // namespace difs
 // class Consumer : boost::noncopyable

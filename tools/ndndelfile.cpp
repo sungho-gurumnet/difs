@@ -1,19 +1,15 @@
-#include "../src/repo-command-parameter.hpp"
-#include "../src/repo-command-response.hpp"
-
-#include <ndn-cxx/face.hpp>
-#include <ndn-cxx/security/command-interest-signer.hpp>
-#include <ndn-cxx/security/key-chain.hpp>
-#include <ndn-cxx/security/signing-helpers.hpp>
-#include <ndn-cxx/util/scheduler.hpp>
+// #include "../src/repo-command-parameter.hpp"
+// #include "../src/repo-command-response.hpp"
+// #include <ndn-cxx/face.hpp>
+// #include <ndn-cxx/security/command-interest-signer.hpp>
+// #include <ndn-cxx/security/key-chain.hpp>
+// #include <ndn-cxx/security/signing-helpers.hpp>
+// #include <ndn-cxx/util/scheduler.hpp>
 
 #include <iostream>
-
 #include <boost/lexical_cast.hpp>
 
-#include <difs.hpp>
-
-namespace repo {
+#include "difs.hpp"
 
 using ndn::Name;
 using ndn::Interest;
@@ -27,75 +23,15 @@ using std::placeholders::_2;
 static const int MAX_RETRY = 3;
 
 
-void
-NdnDelFile::run()
-{
-  Name name(m_dataName);
+// void
+// NdnDelFile::run()
+// {
+//   Name name(m_dataName);
 
-  deleteData(name);
+//   deleteData(name);
 
-  m_face.processEvents(m_timeout);
-}
-
-void
-NdnDelFile::deleteData(const Name& name)
-{
-  // TODO Implement this
-  // See ndnputfile
-
-  std::cout << "Delete " << m_dataName << std::endl;
-
-
-  RepoCommandParameter parameters;
-  parameters.setProcessId(0);  // FIXME: set process id properly
-  parameters.setName(m_dataName);
-
-  // TODO: send delete command interest
-  ndn::Interest commandInterest = generateCommandInterest(m_repoPrefix, "delete", parameters);
-  m_face.expressInterest(commandInterest,
-    bind(&NdnDelFile::onDeleteCommandResponse, this, _1, _2),
-    bind(&NdnDelFile::onDeleteCommandTimeout, this, _1),  // Nack
-    bind(&NdnDelFile::onDeleteCommandTimeout, this, _1));
-}
-
-
-ndn::Interest
-NdnDelFile::generateCommandInterest(const ndn::Name& commandPrefix, const std::string& command,
-                                    const RepoCommandParameter& commandParameter)
-{
-  Name cmd = commandPrefix;
-  cmd
-    .append(command)
-    .append(commandParameter.wireEncode());
-  ndn::Interest interest;
-
-  interest = m_cmdSigner.makeCommandInterest(cmd);
-
-  interest.setInterestLifetime(m_interestLifetime);
-  interest.setMustBeFresh(true);
-  return interest;
-}
-
-void
-NdnDelFile::onDeleteCommandResponse(const ndn::Interest& interest, const ndn::Data& data)
-{
-  RepoCommandResponse response(data.getContent().blockFromValue());
-  int statusCode = response.getCode();
-  if (statusCode == 404) {
-    std::cerr << "Manifest not found" << std::endl;
-    return;
-  }
-  else if (statusCode >= 400) {
-    std::cerr << "delete command failed with code " << statusCode << interest.getName() << std::endl;
-    return;
-  }
-}
-
-void
-NdnDelFile::onDeleteCommandTimeout(const ndn::Interest& interest)
-{
-  std::cerr << "ERROR: timeout while quering " << interest.getName() << std::endl;
-}
+//   m_face.processEvents(m_timeout);
+// }
 
 int
 usage(const std::string& filename)
@@ -168,11 +104,13 @@ main(int argc, char** argv)
     return usage(argv[0]);
   }
 
-  NdnDelFile ndnDelFile(repoPrefix, name, verbose, interestLifetime, timeout);
+  // NdnDelFile ndnDelFile(repoPrefix, name, verbose, interestLifetime, timeout);
+  difs::DIFS difs(repoPrefix);
+  difs.deleteFile(name);
 
   try
   {
-    ndnDelFile.run();
+    difs.run();
   }
   catch (const std::exception& e)
   {
@@ -181,11 +119,3 @@ main(int argc, char** argv)
 
   return 0;
 }
-
-}  // namespace repo
-
-int main(int argc, char** argv)
-{
-  return repo::main(argc, argv);
-}
-// vim: cino=g0,N-s,+0,(s,m1,t0 sw=2
