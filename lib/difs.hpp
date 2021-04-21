@@ -48,6 +48,15 @@ private:
   void
   onGetCommandTimeout(const ndn::Interest& interest);
 
+  void
+  onInsertCommandResponse(const ndn::Interest& interest, const ndn::Data& data);
+
+  void
+  onInsertCommandTimeout(const ndn::Interest& interest);
+
+  void
+  onInsertCommandNack(const ndn::Interest& interest);
+
   // void
   // onRegisterSuccess(const ndn::Name& prefix);
 

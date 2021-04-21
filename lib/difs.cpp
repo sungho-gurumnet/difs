@@ -38,6 +38,12 @@ using namespace repo;
 
 static const int MAX_RETRY = 3;
 
+class Error : public std::runtime_error
+{
+public:
+  using std::runtime_error::runtime_error;
+};
+
 void
 DIFS::onDeleteCommandNack(const Interest& interest)
 {
@@ -147,7 +153,8 @@ DIFS::getFile(const Name& data_name, std::ofstream& os)
   parameter.setProcessId(0);  // FIXME: set process id properly
   parameter.setName(data_name);
 
-  Name cmd = m_common_name;
+  // Name cmd = m_common_name;
+  Name cmd = data_name;
   cmd.append("get")
     .append(parameter.wireEncode());
 
@@ -161,17 +168,55 @@ DIFS::getFile(const Name& data_name, std::ofstream& os)
                         std::bind(&DIFS::onGetCommandNack, this, _1),
                         std::bind(&DIFS::onGetCommandTimeout, this, _1));
 }
+
+void
+DIFS::onInsertCommandResponse(const ndn::Interest& interest, const ndn::Data& data)
+{
+  RepoCommandResponse response(data.getContent().blockFromValue());
+  auto statusCode = response.getCode();
+  if (statusCode >= 400) {
+    BOOST_THROW_EXCEPTION(Error("insert command failed with code " +
+                                boost::lexical_cast<std::string>(statusCode)));
+  }
+  m_processId = response.getProcessId();
+
+  m_scheduler.schedule(m_checkPeriod, [this] { startCheckCommand(); });
 }
 
+void
+DIFS::onInsertCommandTimeout(const ndn::Interest& interest)
+{
+  BOOST_THROW_EXCEPTION(Error("command response timeout"));
+}
 
-// void
-// DIFS::putFile(const ndn::Name& data_name, std::ifstream& is)
-// {
-//   m_face.setInterestFilter(data_name,
-//                            bind(&DIFS::onPutFileInterest, this, _1, _2),
-//                            bind(&DIFS::onRegisterSuccess, this, _1),
-//                            bind(&DIFS::onRegisterFailed, this, _1, _2));
-// }
+void
+DIFS::onInsertCommandNack(const ndn::Interest& interest)
+{
+  BOOST_THROW_EXCEPTION(Error("command response timeout"));
+}
+
+void
+DIFS::putFile(const ndn::Name& data_name, std::ifstream& is)
+{
+  std::cout << "Insert" << data_name << std::endl;
+
+  RepoCommandParameter parameter;
+  parameter.setProcessId(0);  // FIXME: set process id properly
+  parameter.setName(data_name);
+
+  Name cmd = m_common_name;
+  cmd.append("insert")
+    .append(parameter.wireEncode());
+
+  ndn::Interest commandInterest = m_cmdSigner.makeCommandInterest(cmd);
+
+  m_face.expressInterest(commandInterest,
+                         bind(&DIFS::onInsertCommandResponse, this, _1, _2),
+                         bind(&DIFS::onInsertCommandNack, this, _1), // Nack
+                         bind(&DIFS::onInsertCommandTimeout, this, _1));
+}
+}
+
 
 
 // namespace difs
