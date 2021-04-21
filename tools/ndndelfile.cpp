@@ -104,7 +104,6 @@ main(int argc, char** argv)
     return usage(argv[0]);
   }
 
-  // NdnDelFile ndnDelFile(repoPrefix, name, verbose, interestLifetime, timeout);
   difs::DIFS difs(repoPrefix);
   difs.deleteFile(name);
 

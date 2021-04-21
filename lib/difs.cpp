@@ -2,6 +2,8 @@
 #include "repo-command-response.hpp"
 #include "util.hpp"
 
+#include "manifest/manifest.hpp"
+
 #include <ndn-cxx/face.hpp>
 #include <ndn-cxx/security/command-interest-signer.hpp>
 #include <ndn-cxx/security/key-chain.hpp>
@@ -9,6 +11,7 @@
 #include <ndn-cxx/util/scheduler.hpp>
 
 #include "difs.hpp"
+#include "consumer.hpp"
 
 #include <iostream>
 
@@ -83,25 +86,22 @@ DIFS::deleteFile(const Name& data_name)
 {
   std::cout << "Delete " << data_name << std::endl;
 
-  RepoCommandParameter parameters;
-  parameters.setProcessId(0);  // FIXME: set process id properly
-  parameters.setName(data_name);
-
-  // TODO: send delete command interest
-  // ndn::Interest commandInterest = generateCommandInterest(m_common_name, "delete", parameters);
+  RepoCommandParameter parameter;
+  parameter.setProcessId(0);  // FIXME: set process id properly
+  parameter.setName(data_name);
 
   Name cmd = m_common_name;
   cmd.append("delete")
-    .append(parameters.wireEncode());
+    .append(parameter.wireEncode());
 
   ndn::Interest commandInterest = m_cmdSigner.makeCommandInterest(cmd);
 
   commandInterest.setInterestLifetime(m_interestLifetime);
   commandInterest.setMustBeFresh(true);
   m_face.expressInterest(commandInterest,
-                std::bind(&DIFS::onDeleteCommandResponse, this, _1, _2),
-                         std::bind(&DIFS::onDeleteCommandNack, this, _1), // Nack
-                         std::bind(&DIFS::onDeleteCommandTimeout, this, _1));
+                        std::bind(&DIFS::onDeleteCommandResponse, this, _1, _2),
+                        std::bind(&DIFS::onDeleteCommandNack, this, _1), // Nack
+                        std::bind(&DIFS::onDeleteCommandTimeout, this, _1));
 }
 
 void
@@ -109,13 +109,60 @@ DIFS::run()
 {
   m_face.processEvents(m_timeout);
 }
+
+void
+DIFS::onGetCommandResponse(const Interest& interest, const Data& data)
+{
+  auto content = data.getContent();
+  std::string json(
+    content.value_begin(),
+    content.value_end()
+  );
+
+  if (json.length() == 0) {
+    std::cerr << "Not found" << std::endl;
+    return;
+  }
+
+  repo::Manifest manifest = Manifest::fromJson(json);
+
+  Consumer consumer(manifest);
+  consumer.fetch();
 }
 
-// void
-// DIFS::getFile(const Name& name, std::ofstream& os)
-// {
+void
+DIFS::onGetCommandNack(const Interest& interest)
+{
+}
 
-// }
+void
+DIFS::onGetCommandTimeout(const Interest& interest)
+{
+}
+
+void
+DIFS::getFile(const Name& data_name, std::ofstream& os)
+{
+  RepoCommandParameter parameter;
+  parameter.setProcessId(0);  // FIXME: set process id properly
+  parameter.setName(data_name);
+
+  Name cmd = m_common_name;
+  cmd.append("get")
+    .append(parameter.wireEncode());
+
+  ndn::Interest commandInterest = m_cmdSigner.makeCommandInterest(cmd);
+
+  commandInterest.setInterestLifetime(m_interestLifetime);
+  commandInterest.setMustBeFresh(true);
+
+  m_face.expressInterest(commandInterest,
+                        std::bind(&DIFS::onGetCommandResponse, this, _1, _2),
+                        std::bind(&DIFS::onGetCommandNack, this, _1),
+                        std::bind(&DIFS::onGetCommandTimeout, this, _1));
+}
+}
+
 
 // void
 // DIFS::putFile(const ndn::Name& data_name, std::ifstream& is)

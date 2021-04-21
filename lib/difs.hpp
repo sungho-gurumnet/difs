@@ -5,8 +5,6 @@
 #include <ndn-cxx/security/command-interest-signer.hpp>
 #include <ndn-cxx/face.hpp>
 
-// #include "manifest/manifest.hpp"
-
 namespace difs {
 
 using std::shared_ptr;
@@ -38,6 +36,18 @@ private:
   void
   onDeleteCommandNack(const ndn::Interest& interest);
 
+  void
+  onDeleteCommandResponse(const ndn::Interest& interest, const ndn::Data& data);
+
+  void
+  onGetCommandResponse(const ndn::Interest& interest, const ndn::Data& data);
+
+  void
+  onGetCommandNack(const ndn::Interest& interest);
+
+  void
+  onGetCommandTimeout(const ndn::Interest& interest);
+
   // void
   // onRegisterSuccess(const ndn::Name& prefix);
 
@@ -47,9 +57,6 @@ private:
   // ndn::Interest
   // generateCommandInterest(const ndn::Name& commandPrefix, const std::string& command,
   //   const repo::RepoCommandParameter& commandParameter);
-
-  void
-  onDeleteCommandResponse(const ndn::Interest& interest, const ndn::Data& data);
 
   // void
   // sendManifest(const ndn::Name& prefix, const ndn::Interest& interest, size_t blockSize, size_t m_bytes);
