@@ -8,7 +8,6 @@
 #include <ndn-cxx/security/command-interest-signer.hpp>
 #include <ndn-cxx/security/key-chain.hpp>
 #include <ndn-cxx/security/signing-helpers.hpp>
-#include <ndn-cxx/util/scheduler.hpp>
 
 #include "difs.hpp"
 #include "consumer.hpp"
@@ -281,7 +280,7 @@ DIFS::putFilePrepareNextData(uint64_t referenceSegmentNo)
       BOOST_THROW_EXCEPTION(Error("Error reading from the input stream"));
     }
 
-    auto data = make_shared<ndn::Data>(Name(m_dataPrefix).appendSegment(m_currentSegmentNo));
+    auto data = std::make_shared<ndn::Data>(Name(m_dataPrefix).appendSegment(m_currentSegmentNo));
 
     if (insertStream->peek() == std::istream::traits_type::eof()) {
       data->setFinalBlock(ndn::name::Component::fromSegment(m_currentSegmentNo));
@@ -395,7 +394,7 @@ DIFS::putFileSendManifest(const ndn::Name& prefix, const ndn::Interest& interest
 }
 
 void
-DIFS::onRegisterSuccess(const Name& prefix)
+DIFS::onPutFileRegisterSuccess(const Name& prefix)
 {
   putFileStartInsertCommand();
 }

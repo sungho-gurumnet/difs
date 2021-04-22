@@ -4,6 +4,7 @@
 #include <iostream>
 #include <ndn-cxx/security/command-interest-signer.hpp>
 #include <ndn-cxx/face.hpp>
+#include <ndn-cxx/util/scheduler.hpp>
 
 namespace difs {
 
