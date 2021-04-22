@@ -13,8 +13,17 @@
 #include "difs.hpp"
 #include "consumer.hpp"
 
-#include <iostream>
+#include <stdint.h>
+#include <stdlib.h>
+#include <unistd.h>
 
+#include <fstream>
+#include <iostream>
+#include <string>
+
+#include <boost/asio.hpp>
+#include <boost/iostreams/operations.hpp>
+#include <boost/iostreams/read.hpp>
 #include <boost/lexical_cast.hpp>
 
 static const uint64_t DEFAULT_BLOCK_SIZE = 1000;
@@ -133,11 +142,31 @@ DIFS::onGetCommandResponse(const Interest& interest, const Data& data)
 void
 DIFS::onGetCommandNack(const Interest& interest)
 {
+  std::ofstream of;
+  if (m_retryCount++ < MAX_RETRY) {
+    getFile(interest.getName(), of);
+    if (m_verbose) {
+      std::cerr << "TIMEOUT: retransmit interest for " << interest.getName() << std::endl;
+    }
+  } else {
+    std::cerr << "TIMEOUT: last interest sent" << std::endl
+    << "TIMEOUT: abort fetching after " << MAX_RETRY << " times of retry" << std::endl;
+  }
 }
 
 void
 DIFS::onGetCommandTimeout(const Interest& interest)
 {
+  std::ofstream of;
+  if (m_retryCount++ < MAX_RETRY) {
+    getFile(interest.getName(), of);
+    if (m_verbose) {
+      std::cerr << "TIMEOUT: retransmit interest for " << interest.getName() << std::endl;
+    }
+  } else {
+    std::cerr << "TIMEOUT: last interest sent" << std::endl
+    << "TIMEOUT: abort fetching after " << MAX_RETRY << " times of retry" << std::endl;
+  }
 }
 
 void
@@ -160,6 +189,298 @@ DIFS::getFile(const Name& data_name, std::ofstream& os)
                         std::bind(&DIFS::onGetCommandResponse, this, _1, _2),
                         std::bind(&DIFS::onGetCommandNack, this, _1),
                         std::bind(&DIFS::onGetCommandTimeout, this, _1));
+}
+
+void
+DIFS::onPutCommandNack(const Interest& interest)
+{
+  std::istream* is;
+  if (m_retryCount++ < MAX_RETRY) {
+    putFile(interest.getName(), *is);
+    if (m_verbose) {
+      std::cerr << "TIMEOUT: retransmit interest for " << interest.getName() << std::endl;
+    }
+  } else {
+    std::cerr << "TIMEOUT: last interest sent" << std::endl
+    << "TIMEOUT: abort fetching after " << MAX_RETRY << " times of retry" << std::endl;
+  }
+}
+
+void
+DIFS::onPutCommandTimeout(const Interest& interest)
+{
+  std::istream* is;
+  if (m_retryCount++ < MAX_RETRY) {
+    putFile(interest.getName(), *is);
+    if (m_verbose) {
+      std::cerr << "TIMEOUT: retransmit interest for " << interest.getName() << std::endl;
+    }
+  } else {
+    std::cerr << "TIMEOUT: last interest sent" << std::endl
+    << "TIMEOUT: abort fetching after " << MAX_RETRY << " times of retry" << std::endl;
+  }
+}
+
+void 
+DIFS::putFile(const ndn::Name &name, std::istream &is)
+{
+  m_dataPrefix = ndnName;
+
+  insertStream->seekg(0, std::ios::beg);
+  auto beginPos = insertStream->tellg();
+  insertStream->seekg(0, std::ios::end);
+  m_bytes = insertStream->tellg() - beginPos;
+  insertStream->seekg(0, std::ios::beg);
+
+  if (m_verbose)
+    std::cerr << "setInterestFilter for " << m_dataPrefix << std::endl;
+
+  m_face.setInterestFilter(m_dataPrefix,
+                           bind(&DIFS::onPutFileInterest, this, _1, _2),
+                           bind(&DIFS::onPutFileRegisterSuccess, this, _1),
+                           bind(&DIFS::onPutFileRegisterFailed, this, _1, _2));
+
+  if (hasTimeout)
+    m_scheduler.schedule(timeout, [this] { putFileStopProcess(); });
+
+  m_face.processEvents();
+}
+
+void
+DIFS::putFilePrepareNextData(uint64_t referenceSegmentNo)
+{
+  // make sure m_data has [referenceSegmentNo, referenceSegmentNo + PRE_SIGN_DATA_COUNT] Data
+  if (m_isFinished)
+    return;
+
+  size_t nDataToPrepare = PRE_SIGN_DATA_COUNT;
+
+  if (!m_data.empty()) {
+    uint64_t maxSegmentNo = m_data.rbegin()->first;
+
+    if (maxSegmentNo - referenceSegmentNo >= nDataToPrepare) {
+      // nothing to prepare
+      return;
+    }
+
+    nDataToPrepare -= maxSegmentNo - referenceSegmentNo;
+  }
+
+  for (size_t i = 0; i < nDataToPrepare && !m_isFinished; ++i) {
+    uint8_t *buffer = new uint8_t[blockSize];
+    auto readSize = boost::iostreams::read(*insertStream,
+                                           reinterpret_cast<char*>(buffer), blockSize);
+    if (readSize <= 0) {
+      BOOST_THROW_EXCEPTION(Error("Error reading from the input stream"));
+    }
+
+    auto data = make_shared<ndn::Data>(Name(m_dataPrefix).appendSegment(m_currentSegmentNo));
+
+    if (insertStream->peek() == std::istream::traits_type::eof()) {
+      data->setFinalBlock(ndn::name::Component::fromSegment(m_currentSegmentNo));
+      m_isFinished = true;
+    }
+
+    data->setContent(buffer, readSize);
+    data->setFreshnessPeriod(freshnessPeriod);
+    putFileSignData(*data);
+
+    m_data.insert(std::make_pair(m_currentSegmentNo, data));
+
+    ++m_currentSegmentNo;
+    delete[] buffer;
+  }
+}
+
+void
+DIFS::putFileStartInsertCommand()
+{
+  RepoCommandParameter parameters;
+  parameters.setName(m_dataPrefix);
+
+  ndn::Interest commandInterest = generateCommandInterest(repoPrefix, "insert", parameters);
+  m_face.expressInterest(commandInterest,
+                         bind(&DIFS::onPutFileInsertCommandResponse, this, _1, _2),
+                         bind(&DIFS::onPutFileInsertCommandTimeout, this, _1), // Nack
+                         bind(&DIFS::onPutFileInsertCommandTimeout, this, _1));
+}
+
+void
+DIFS::onPutFileInsertCommandResponse(const ndn::Interest& interest, const ndn::Data& data)
+{
+  RepoCommandResponse response(data.getContent().blockFromValue());
+  auto statusCode = response.getCode();
+  if (statusCode >= 400) {
+    BOOST_THROW_EXCEPTION(Error("insert command failed with code " +
+                                boost::lexical_cast<std::string>(statusCode)));
+  }
+  m_processId = response.getProcessId();
+
+  m_scheduler.schedule(m_checkPeriod, [this] { putFileStartCheckCommand(); });
+}
+
+void
+DIFS::onPutFileInsertCommandTimeout(const ndn::Interest& interest)
+{
+  BOOST_THROW_EXCEPTION(Error("command response timeout"));
+}
+
+void
+DIFS::onPutFileInterest(const ndn::Name& prefix, const ndn::Interest& interest)
+{
+  if (interest.getName().size() == prefix.size()) {
+    putFileSendManifest(prefix, interest);
+    return;
+  }
+
+  uint64_t segmentNo;
+  try {
+    ndn::Name::Component segmentComponent = interest.getName().get(prefix.size());
+    segmentNo = segmentComponent.toSegment();
+  }
+  catch (const tlv::Error& e) {
+    if (m_verbose) {
+      std::cerr << "Error processing incoming interest " << interest << ": "
+                << e.what() << std::endl;
+    }
+    return;
+  }
+
+  putFilePrepareNextData(segmentNo);
+
+  DataContainer::iterator item = m_data.find(segmentNo);
+  if (item == m_data.end()) {
+    if (m_verbose) {
+      std::cerr << "Requested segment [" << segmentNo << "] does not exist" << std::endl;
+    }
+    return;
+  }
+
+  if (m_isFinished) {
+    uint64_t final = m_currentSegmentNo - 1;
+    item->second->setFinalBlock(ndn::name::Component::fromSegment(final));
+  }
+  m_face.put(*item->second);
+}
+
+void
+DIFS::putFileSendManifest(const ndn::Name& prefix, const ndn::Interest& interest)
+{
+  BOOST_ASSERT(prefix == m_dataPrefix);
+
+  if (prefix != interest.getName()) {
+    if (m_verbose) {
+      std::cerr << "Received unexpected interest " << interest << std::endl;
+    }
+    return;
+  }
+
+  ndn::Data data(interest.getName());
+  auto blockCount = m_bytes / blockSize + (m_bytes % blockSize != 0);
+
+  Manifest manifest(interest.getName().toUri(), 0, blockCount - 1);
+  std::string json = manifest.toInfoJson();
+  data.setContent((uint8_t*) json.data(), (size_t) json.size());
+  data.setFreshnessPeriod(freshnessPeriod);
+  putFileSignData(data);
+
+  m_face.put(data);
+}
+
+void
+DIFS::onRegisterSuccess(const Name& prefix)
+{
+  putFileStartInsertCommand();
+}
+
+void
+DIFS::onPutFileRegisterFailed(const ndn::Name& prefix, const std::string& reason)
+{
+  BOOST_THROW_EXCEPTION(Error("onRegisterFailed: " + reason));
+}
+
+void
+DIFS::putFileStopProcess()
+{
+  m_face.getIoService().stop();
+}
+
+void
+DIFS::putFileSignData(ndn::Data& data)
+{
+  if (useDigestSha256) {
+    m_keyChain.sign(data, ndn::signingWithSha256());
+  }
+  else if (identityForData.empty())
+    m_keyChain.sign(data);
+  else {
+    m_keyChain.sign(data, ndn::signingByIdentity(identityForData));
+  }
+}
+
+void
+DIFS::putFileStartCheckCommand()
+{
+  auto parameter = RepoCommandParameter();
+  parameter.setName(ndnName);
+  ndn::Interest checkInterest = generateCommandInterest(repoPrefix, "insert check",
+                                                        parameter
+                                                          .setProcessId(m_processId));
+  m_face.expressInterest(checkInterest,
+                         bind(&DIFS::onPutFileCheckCommandResponse, this, _1, _2),
+                         bind(&DIFS::onPutFileCheckCommandTimeout, this, _1), // Nack
+                         bind(&DIFS::onPutFileCheckCommandTimeout, this, _1));
+}
+
+void
+DIFS::onPutFileCheckCommandResponse(const ndn::Interest& interest, const ndn::Data& data)
+{
+  RepoCommandResponse response(data.getContent().blockFromValue());
+  auto statusCode = response.getCode();
+  if (statusCode >= 400) {
+    BOOST_THROW_EXCEPTION(Error("Insert check command failed with code: " +
+                                boost::lexical_cast<std::string>(statusCode)));
+  }
+
+  if (m_isFinished) {
+    uint64_t insertCount = response.getInsertNum();
+
+    // Technically, the check should not infer, but directly has signal from repo that
+    // write operation has been finished
+
+    if (insertCount == m_currentSegmentNo) {
+      m_face.getIoService().stop();
+      return;
+    }
+  }
+
+  m_scheduler.schedule(m_checkPeriod, [this] { putFileStartCheckCommand(); });
+}
+
+void
+DIFS::onPutFileCheckCommandTimeout(const ndn::Interest& interest)
+{
+  BOOST_THROW_EXCEPTION(Error("check response timeout"));
+}
+
+ndn::Interest
+DIFS::putFileGenerateCommandInterest(const ndn::Name& commandPrefix, const std::string& command,
+                                    const repo::RepoCommandParameter& commandParameter)
+{
+  Name cmd = commandPrefix;
+  cmd
+    .append(command)
+    .append(commandParameter.wireEncode());
+  ndn::Interest interest;
+
+  if (identityForCommand.empty())
+    interest = m_cmdSigner.makeCommandInterest(cmd);
+  else {
+    interest = m_cmdSigner.makeCommandInterest(cmd, ndn::signingByIdentity(identityForCommand));
+  }
+
+  interest.setInterestLifetime(interestLifetime);
+  return interest;
 }
 }
 

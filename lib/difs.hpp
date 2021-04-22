@@ -12,10 +12,10 @@ using std::shared_ptr;
 class DIFS : boost::noncopyable
 {
 public:
-  DIFS(const std::string& common_name)
-  : m_common_name(common_name)
-    , m_cmdSigner(m_keyChain)
-  {}
+  // DIFS(const std::string& common_name)
+  // : m_common_name(common_name)
+  //   , m_cmdSigner(m_keyChain)
+  // {}
 
   void
   deleteFile(const ndn::Name& name);
@@ -24,7 +24,7 @@ public:
   getFile(const ndn::Name& name, std::ofstream& os);
 
   void
-  putFile(const ndn::Name& name, std::ifstream& is);
+  putFile(const ndn::Name& name, std::istream& is);
 
   void
   run();
@@ -48,22 +48,55 @@ private:
   void
   onGetCommandTimeout(const ndn::Interest& interest);
 
-  // void
-  // onRegisterSuccess(const ndn::Name& prefix);
+  void
+  onRegisterSuccess(const ndn::Name& prefix);
 
-  // void
-  // onRegisterFailed(const ndn::Name& prefix, const std::string& reason);
+  void
+  onRegisterFailed(const ndn::Name& prefix, const std::string& reason);
 
-  // ndn::Interest
-  // generateCommandInterest(const ndn::Name& commandPrefix, const std::string& command,
-  //   const repo::RepoCommandParameter& commandParameter);
+  ndn::Interest
+  generateCommandInterest(const ndn::Name& commandPrefix, const std::string& command,
+    const repo::RepoCommandParameter& commandParameter);
 
-  // void
-  // sendManifest(const ndn::Name& prefix, const ndn::Interest& interest, size_t blockSize, size_t m_bytes);
+  void
+  putFileSendManifest(const ndn::Name &prefix, const ndn::Interest &interest);
 
-  // void
-  // onPutFileInterest(const ndn::Name& prefix, const ndn::Interest& interest);
+  void
+  onPutFileInterest(const ndn::Name& prefix, const ndn::Interest& interest);
 
+  void
+  onPutFileInsertCommandResponse(const ndn::Interest& interest, const ndn::Data& data);
+ 
+  void
+  onPutFileInsertCommandTimeout(const ndn::Interest& interest);
+ 
+  void
+  onPutFileRegisterSuccess(const ndn::Name& prefix);
+
+  void
+  onPutFileRegisterFailed(const ndn::Name& prefix, const std::string& reason);
+  
+  void
+  onPutCommandNack(const ndn::Interest& interest);
+
+  void
+  onPutCommandTimeout(const ndn::Interest& interest);
+
+  void
+  putFileStopProcess();
+
+  void
+  putFileSignData(ndn::Data& data);
+
+  void
+  onPutFileCheckCommandResponse(const ndn::Interest& interest, const ndn::Data& data);
+  
+  void
+  onPutFileCheckCommandTimeout(const ndn::Interest& interest);
+  
+  ndn::Interest
+  putFileGenerateCommandInterest(const ndn::Name& commandPrefix, const std::string& command,
+                          const repo::RepoCommandParameter& commandParameter);
   // void
   // createManifestData(const ndn::Name& prefix, const ndn::Interest& interest);
 
@@ -100,34 +133,54 @@ private:
   // void
   // signData(ndn::Data& data, bool useDigestSha256);
 
-  // void
-  // prepareNextData(uint64_t referenceSegmentNo, size_t blockSize);
+  void
+  putFilePrepareNextData(uint64_t referenceSegmentNo);
 
   // void
   // signFirstData(ndn::Data& data);
 
-  // void
-  // putFilestartCheckCommand();
+  void
+  putFileStartCheckCommand();
 
-  // void
-  // putFileonCheckCommandResponse(const ndn::Interest& interest, const ndn::Data& data);
+  void
+  putFileonCheckCommandResponse(const ndn::Interest& interest, const ndn::Data& data);
 
-  // void
-  // startInsertCommand(const ndn::Name& data_name);
+  void
+  putFileStartInsertCommand();
 
 private:
   ndn::Face m_face;
+  ndn::Name repoPrefix;
+  ndn::Name m_dataPrefix;
   ndn::Name m_common_name;
+  ndn::Name ndnName;
   bool m_verbose;
+  bool useDigestSha256;
+  bool hasTimeout;
   ndn::time::milliseconds m_interestLifetime;
   ndn::time::milliseconds m_timeout;
   int m_retryCount;
   ndn::time::milliseconds m_freshness_period;
 
+  std::string identityForData;
+  std::string identityForCommand;
+
+  size_t blockSize;
+  size_t m_currentSegmentNo;
+  size_t m_bytes;
+  std::istream* insertStream;
+
+  ndn::time::milliseconds freshnessPeriod; 
+  ndn::time::milliseconds m_checkPeriod;
+  ndn::time::milliseconds interestLifetime;
+  ndn::time::milliseconds timeout;
+
   ndn::KeyChain m_keyChain;
   ndn::security::CommandInterestSigner m_cmdSigner;
   bool m_isFinished;
 
+  uint64_t m_processId;
+  ndn::Scheduler m_scheduler;
 // TODO: remove it
   using DataContainer = std::map<uint64_t, shared_ptr<ndn::Data>>;
   DataContainer m_data;
