@@ -13,10 +13,10 @@ using std::shared_ptr;
 class DIFS : boost::noncopyable
 {
 public:
-  // DIFS(const std::string& common_name)
-  // : m_common_name(common_name)
-  //   , m_cmdSigner(m_keyChain)
-  // {}
+  DIFS(const std::string& common_name)
+  : m_common_name(common_name)
+    , m_cmdSigner(m_keyChain)
+  {}
 
   void
   deleteFile(const ndn::Name& name);
@@ -55,9 +55,9 @@ private:
   void
   onRegisterFailed(const ndn::Name& prefix, const std::string& reason);
 
-  ndn::Interest
-  generateCommandInterest(const ndn::Name& commandPrefix, const std::string& command,
-    const repo::RepoCommandParameter& commandParameter);
+  // ndn::Interest
+  // generateCommandInterest(const ndn::Name& commandPrefix, const std::string& command,
+  //   const repo::RepoCommandParameter& commandParameter);
 
   void
   putFileSendManifest(const ndn::Name &prefix, const ndn::Interest &interest);
@@ -95,9 +95,10 @@ private:
   void
   onPutFileCheckCommandTimeout(const ndn::Interest& interest);
   
-  ndn::Interest
-  putFileGenerateCommandInterest(const ndn::Name& commandPrefix, const std::string& command,
-                          const repo::RepoCommandParameter& commandParameter);
+  // ndn::Interest
+  // putFileGenerateCommandInterest(const ndn::Name& commandPrefix, const std::string& command,
+  //                         const repo::RepoCommandParameter& commandParameter);
+
   // void
   // createManifestData(const ndn::Name& prefix, const ndn::Interest& interest);
 

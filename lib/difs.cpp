@@ -8,6 +8,7 @@
 #include <ndn-cxx/security/command-interest-signer.hpp>
 #include <ndn-cxx/security/key-chain.hpp>
 #include <ndn-cxx/security/signing-helpers.hpp>
+#include <ndn-cxx/util/scheduler.hpp>
 
 #include "difs.hpp"
 #include "consumer.hpp"
@@ -46,11 +47,25 @@ using namespace repo;
 
 static const int MAX_RETRY = 3;
 
-class Error : public std::runtime_error
+static ndn::Interest
+putFileGenerateCommandInterest(const ndn::Name& commandPrefix, const std::string& command,
+                                    const repo::RepoCommandParameter& commandParameter)
 {
-public:
-  using std::runtime_error::runtime_error;
-};
+  // Name cmd = commandPrefix;
+  // cmd
+  //   .append(command)
+  //   .append(commandParameter.wireEncode());
+  ndn::Interest interest;
+
+  // if (identityForCommand.empty())
+  //   interest = m_cmdSigner.makeCommandInterest(cmd);
+  // else {
+  //   interest = m_cmdSigner.makeCommandInterest(cmd, ndn::signingByIdentity(identityForCommand));
+  // }
+
+  // interest.setInterestLifetime(interestLifetime);
+  return interest;
+}
 
 void
 DIFS::onDeleteCommandNack(const Interest& interest)
@@ -181,8 +196,7 @@ DIFS::getFile(const Name& data_name, std::ofstream& os)
   parameter.setProcessId(0);  // FIXME: set process id properly
   parameter.setName(data_name);
 
-  // Name cmd = m_common_name;
-  Name cmd = data_name;
+  Name cmd = m_common_name;
   cmd.append("get")
     .append(parameter.wireEncode());
 
@@ -247,7 +261,7 @@ DIFS::putFile(const ndn::Name &name, std::istream &is)
                            bind(&DIFS::onPutFileRegisterFailed, this, _1, _2));
 
   if (hasTimeout)
-    m_scheduler.schedule(timeout, [this] { putFileStopProcess(); });
+    m_scheduler.schedule(m_timeout, [this] { putFileStopProcess(); });
 
   m_face.processEvents();
 }
@@ -304,7 +318,7 @@ DIFS::putFileStartInsertCommand()
   RepoCommandParameter parameters;
   parameters.setName(m_dataPrefix);
 
-  ndn::Interest commandInterest = generateCommandInterest(repoPrefix, "insert", parameters);
+  ndn::Interest commandInterest = putFileGenerateCommandInterest(repoPrefix, "insert", parameters);
   m_face.expressInterest(commandInterest,
                          bind(&DIFS::onPutFileInsertCommandResponse, this, _1, _2),
                          bind(&DIFS::onPutFileInsertCommandTimeout, this, _1), // Nack
@@ -394,7 +408,7 @@ DIFS::putFileSendManifest(const ndn::Name& prefix, const ndn::Interest& interest
 }
 
 void
-DIFS::onPutFileRegisterSuccess(const Name& prefix)
+DIFS::onRegisterSuccess(const Name& prefix)
 {
   putFileStartInsertCommand();
 }
@@ -429,7 +443,7 @@ DIFS::putFileStartCheckCommand()
 {
   auto parameter = RepoCommandParameter();
   parameter.setName(ndnName);
-  ndn::Interest checkInterest = generateCommandInterest(repoPrefix, "insert check",
+  ndn::Interest checkInterest = putFileGenerateCommandInterest(repoPrefix, "insert check",
                                                         parameter
                                                           .setProcessId(m_processId));
   m_face.expressInterest(checkInterest,
@@ -469,60 +483,17 @@ DIFS::onPutFileCheckCommandTimeout(const ndn::Interest& interest)
   BOOST_THROW_EXCEPTION(Error("check response timeout"));
 }
 
-ndn::Interest
-DIFS::putFileGenerateCommandInterest(const ndn::Name& commandPrefix, const std::string& command,
-                                    const repo::RepoCommandParameter& commandParameter)
-{
-  Name cmd = commandPrefix;
-  cmd
-    .append(command)
-    .append(commandParameter.wireEncode());
-  ndn::Interest interest;
-
-  if (identityForCommand.empty())
-    interest = m_cmdSigner.makeCommandInterest(cmd);
-  else {
-    interest = m_cmdSigner.makeCommandInterest(cmd, ndn::signingByIdentity(identityForCommand));
-  }
-
-  interest.setInterestLifetime(interestLifetime);
-  return interest;
 }
 
-// void
-// DIFS::onInsertCommandTimeout(const ndn::Interest& interest)
-// {
-//   BOOST_THROW_EXCEPTION(Error("command response timeout"));
-// }
-
-// void
-// DIFS::onInsertCommandNack(const ndn::Interest& interest)
-// {
-//   BOOST_THROW_EXCEPTION(Error("command response timeout"));
-// }
 
 // void
 // DIFS::putFile(const ndn::Name& data_name, std::ifstream& is)
 // {
-//   std::cout << "Insert" << data_name << std::endl;
-
-//   RepoCommandParameter parameter;
-//   parameter.setProcessId(0);  // FIXME: set process id properly
-//   parameter.setName(data_name);
-
-//   Name cmd = m_common_name;
-//   cmd.append("insert")
-//     .append(parameter.wireEncode());
-
-//   ndn::Interest commandInterest = m_cmdSigner.makeCommandInterest(cmd);
-
-//   m_face.expressInterest(commandInterest,
-//                          bind(&DIFS::onInsertCommandResponse, this, _1, _2),
-//                          bind(&DIFS::onInsertCommandNack, this, _1), // Nack
-//                          bind(&DIFS::onInsertCommandTimeout, this, _1));
+//   m_face.setInterestFilter(data_name,
+//                            bind(&DIFS::onPutFileInterest, this, _1, _2),
+//                            bind(&DIFS::onRegisterSuccess, this, _1),
+//                            bind(&DIFS::onRegisterFailed, this, _1, _2));
 // }
-}
-
 
 
 // namespace difs
