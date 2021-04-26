@@ -16,6 +16,7 @@ public:
   DIFS(const std::string& common_name)
   : m_common_name(common_name)
     , m_cmdSigner(m_keyChain)
+    , m_scheduler(m_face.getIoService())
   {}
 
   void
