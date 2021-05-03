@@ -104,7 +104,7 @@ main(int argc, char** argv)
     return usage(argv[0]);
   }
 
-  difs::DIFS difs(repoPrefix);
+  difs::DIFS difs(repoPrefix, verbose, interestLifetime, timeout);
   difs.deleteFile(name);
 
   try

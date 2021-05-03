@@ -3,6 +3,11 @@
 
 #include "manifest/manifest.hpp"
 
+#include <iostream>
+#include <map> 
+#include <tuple>
+
+#include <ndn-cxx/encoding/block.hpp>
 #include <ndn-cxx/security/command-interest-signer.hpp>
 #include <ndn-cxx/face.hpp>
 
@@ -10,7 +15,7 @@ namespace difs {
 
 class Consumer : boost::noncopyable {
   public:
-	Consumer(const repo::Manifest& manifest);
+	Consumer(const repo::Manifest& manifest, std::ofstream& os);
 
 	void
 	fetch();
@@ -23,7 +28,13 @@ class Consumer : boost::noncopyable {
 	void onDataCommandNack(const ndn::Interest& interest);
 
   private:
-
+	// std::map<int, std::tuple<const uint8_t*, size_t>> map;
+	std::ofstream& m_os;
+	std::map<int, const ndn::Block> map;
+	bool m_verbose;
+	int m_currentSegment;
+	int m_totalSize;
+	int m_retryCount;
 	ndn::Face m_face;
 	repo::Manifest m_manifest;
 };

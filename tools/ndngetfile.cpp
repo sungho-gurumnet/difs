@@ -50,7 +50,7 @@ main(int argc, char** argv)
   std::string repoPrefix;
   std::string name;
   const char* outputFile = nullptr;
-  bool verbose = false, versioned = false, single = false;
+  bool verbose = false;
   int interestLifetime = 4000;  // in milliseconds
   int timeout = 0;  // in milliseconds
 
@@ -119,7 +119,7 @@ main(int argc, char** argv)
     buf = std::cout.rdbuf();
   }
 
-  difs::DIFS difs(repoPrefix);
+  difs::DIFS difs(repoPrefix, verbose, interestLifetime, timeout);
   difs.getFile(name, of);
 
   try

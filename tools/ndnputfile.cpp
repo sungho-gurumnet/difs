@@ -68,9 +68,10 @@ usage(const char* programName)
 
 int
 main(int argc, char** argv)
-{
-  bool useDigestSha256, hasTimeout, isVerbose;
-  std::string identityForData, identifyForCommand;
+{ 
+  ndn::time::milliseconds interestLifetime, timeout, freshnessPeriod;
+  bool useDigestSha256, hasTimeout, verbose;
+  std::string identityForData, identityForCommand;
   std::string repoPrefix;
   std::string ndnName, difsKey;
   std::istream* insertStream;
@@ -89,13 +90,35 @@ main(int argc, char** argv)
       identityForData = std::string(optarg);
       break;
     case 'I':
+      identityForCommand = std::string(optarg);
       break;
     case 'x':
+      try {
+        freshnessPeriod = ndn::time::milliseconds(boost::lexical_cast<uint64_t>(optarg));
+      }
+      catch (const boost::bad_lexical_cast&) {
+        std::cerr << "-x option should be an integer" << std::endl;;
+        return 2;
+      }
       break;
     case 'l':
+      try {
+        interestLifetime = ndn::time::milliseconds(boost::lexical_cast<uint64_t>(optarg));
+      }
+      catch (const boost::bad_lexical_cast&) {
+        std::cerr << "-l option should be an integer" << std::endl;;
+        return 2;
+      }
       break;
     case 'w':
       hasTimeout = true;
+      try {
+        timeout = ndn::time::milliseconds(boost::lexical_cast<uint64_t>(optarg));
+      }
+      catch (const boost::bad_lexical_cast&) {
+        std::cerr << "-w option should be an integer" << std::endl;;
+        return 2;
+      }
       break;
     case 's':
       try {
@@ -107,7 +130,7 @@ main(int argc, char** argv)
       }
       break;
     case 'v':
-      isVerbose = true;
+      verbose = true;
       break;
     default:
       usage(argv[0]);
@@ -139,8 +162,13 @@ main(int argc, char** argv)
     insertStream = &inputFileStream;
   }
 
-  difs::DIFS difs(repoPrefix);
+  difs::DIFS difs(repoPrefix, hasTimeout, verbose, interestLifetime, timeout);
   difs.putFile(ndnName, *insertStream);
+  difs.setUseDigestSha256(useDigestSha256);
+  difs.setBlockSize(blockSize);
+  difs.setFreshnessPeriod(freshnessPeriod);
+  difs.setIdentityForData(identityForData);
+  difs.setIdentityForCommand(identityForCommand);
 
   try
   {

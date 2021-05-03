@@ -19,6 +19,52 @@ public:
     , m_scheduler(m_face.getIoService())
   {}
 
+  DIFS(const std::string& common_name, bool verbose, int interestLitfetime, int timeout)
+  : m_common_name(common_name)
+    , m_verbose(verbose)
+    , m_interestLifetime(interestLifetime)
+    , m_timeout(timeout)
+    , m_cmdSigner(m_keyChain)
+    , m_scheduler(m_face.getIoService())
+  {}
+
+  DIFS(const std::string& common_name, bool hasTimeout, bool verbose, ndn::time::milliseconds interestLitfetime, ndn::time::milliseconds timeout)
+  : m_common_name(common_name)
+    , m_hasTimeout(hasTimeout)
+    , m_verbose(verbose)
+    , m_interestLifetime(interestLifetime)
+    , m_timeout(timeout)
+    , m_cmdSigner(m_keyChain)
+    , m_scheduler(m_face.getIoService())
+  {}
+
+  void
+  setTimeOut(ndn::time::milliseconds timeout);
+
+  void
+  setInterestLifetime(ndn::time::milliseconds interestLifetime);
+
+  void
+  setFreshnessPeriod(ndn::time::milliseconds freshnessPeriod);
+
+  void
+  setHasTimeout(bool hasTimeout);
+
+  void
+  setVerbose(bool verbose);
+
+  void
+  setUseDigestSha256(bool useDigestSha256);
+
+  void
+  setBlockSize(size_t blockSize);
+
+  void
+  setIdentityForData(std::string identityForData);
+
+  void
+  setIdentityForCommand(std::string identityForCommand);
+
   void
   deleteFile(const ndn::Name& name);
 
@@ -84,6 +130,12 @@ private:
   void
   onPutCommandTimeout(const ndn::Interest& interest);
 
+  void
+  onPutFileCheckCommandNack(const ndn::Interest& interest);
+
+  void
+  onPutFileInsertCommandNack(const ndn::Interest& interest);
+  
   void
   putFileStopProcess();
 
@@ -158,20 +210,22 @@ private:
   ndn::Name m_common_name;
   ndn::Name ndnName;
   bool m_verbose;
-  bool useDigestSha256;
-  bool hasTimeout;
+  bool m_useDigestSha256;
+  bool m_hasTimeout;
   ndn::time::milliseconds m_interestLifetime;
   ndn::time::milliseconds m_timeout;
   int m_retryCount;
   ndn::time::milliseconds m_freshness_period;
 
-  std::string identityForData;
-  std::string identityForCommand;
+  std::string m_identityForData;
+  std::string m_identityForCommand;
 
-  size_t blockSize;
+  std::ofstream* m_os;
+  std::istream* insertStream;
+  
+  size_t m_blockSize;
   size_t m_currentSegmentNo;
   size_t m_bytes;
-  std::istream* insertStream;
 
   ndn::time::milliseconds freshnessPeriod; 
   ndn::time::milliseconds m_checkPeriod;
@@ -179,15 +233,13 @@ private:
   ndn::time::milliseconds timeout;
 
   ndn::KeyChain m_keyChain;
-  ndn::security::CommandInterestSigner m_cmdSigner;
   bool m_isFinished;
 
   uint64_t m_processId;
   ndn::Scheduler m_scheduler;
-// TODO: remove it
   using DataContainer = std::map<uint64_t, shared_ptr<ndn::Data>>;
   DataContainer m_data;
-  std::string m_identity_for_data;
+  ndn::security::CommandInterestSigner m_cmdSigner;
 };
 
 }// namespace difs
