@@ -17,6 +17,7 @@
  * repo-ng, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <iostream>
 #include "../src/repo-command-parameter.hpp"
 #include "../src/repo-command-response.hpp"
 
@@ -31,7 +32,6 @@
 #include <unistd.h>
 
 #include <fstream>
-#include <iostream>
 #include <string>
 
 #include <boost/asio.hpp>
@@ -72,8 +72,8 @@ main(int argc, char** argv)
   ndn::time::milliseconds interestLifetime, timeout, freshnessPeriod;
   bool useDigestSha256, hasTimeout, verbose;
   std::string identityForData, identityForCommand;
-  std::string repoPrefix;
-  std::string ndnName, difsKey;
+  ndn::Name repoPrefix, ndnName;
+  std::string difsKey;
   std::istream* insertStream;
   size_t blockSize;
   
@@ -146,14 +146,16 @@ main(int argc, char** argv)
   argc -= optind;
   argv += optind;
 
-  repoPrefix = argv[0];
+  repoPrefix = ndn::Name(argv[0]);
   difsKey = argv[2];
-  ndnName = argv[1] + difsKey;
+  ndnName = ndn::Name(argv[1]).append(difsKey);
+
+  std::ifstream inputFileStream;
   if (strcmp(argv[3], "-") == 0) {
     insertStream = &std::cin;
   }
   else {
-    std::ifstream inputFileStream(argv[3], std::ios::in | std::ios::binary);
+    inputFileStream.open(argv[3], std::ios::in | std::ios::binary);
     if (!inputFileStream.is_open()) {
       std::cerr << "ERROR: cannot open " << argv[3] << std::endl;
       return 2;
@@ -162,23 +164,17 @@ main(int argc, char** argv)
     insertStream = &inputFileStream;
   }
 
-  difs::DIFS difs(repoPrefix, hasTimeout, verbose, interestLifetime, timeout);
+  difs::DIFS difs(repoPrefix);
   difs.putFile(ndnName, *insertStream);
-  difs.setUseDigestSha256(useDigestSha256);
-  difs.setBlockSize(blockSize);
-  difs.setFreshnessPeriod(freshnessPeriod);
-  difs.setIdentityForData(identityForData);
-  difs.setIdentityForCommand(identityForCommand);
 
   try
   {
     difs.run();
   }
-  catch (const std::exception& e)
+  catch (const std::exception &e)
   {
     std::cerr << "ERROR: " << e.what() << std::endl;
   }
-  // ndnPutFile MUST NOT be used anymore because .insertStream is a dangling pointer
 
   return 0;
 }

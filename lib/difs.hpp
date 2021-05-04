@@ -10,33 +10,54 @@ namespace difs {
 
 using std::shared_ptr;
 
+static const uint64_t DEFAULT_BLOCK_SIZE = 1000;
+static const uint64_t DEFAULT_INTEREST_LIFETIME = 4000;
+static const uint64_t DEFAULT_FRESHNESS_PERIOD = 10000;
+static const uint64_t DEFAULT_CHECK_PERIOD = 1000;
+
 class DIFS : boost::noncopyable
 {
 public:
+  DIFS()
+  : m_scheduler(m_face.getIoService())
+    , m_cmdSigner(m_keyChain)
+  {}
+
   DIFS(const std::string& common_name)
   : m_common_name(common_name)
-    , m_cmdSigner(m_keyChain)
     , m_scheduler(m_face.getIoService())
+    , m_cmdSigner(m_keyChain)
   {}
 
   DIFS(const std::string& common_name, bool verbose, int interestLitfetime, int timeout)
   : m_common_name(common_name)
-    , m_verbose(verbose)
-    , m_interestLifetime(interestLifetime)
+    , m_interestLifetime(m_interestLifetime)
     , m_timeout(timeout)
-    , m_cmdSigner(m_keyChain)
+    , m_verbose(verbose)
     , m_scheduler(m_face.getIoService())
+    , m_cmdSigner(m_keyChain)
   {}
 
-  DIFS(const std::string& common_name, bool hasTimeout, bool verbose, ndn::time::milliseconds interestLitfetime, ndn::time::milliseconds timeout)
-  : m_common_name(common_name)
-    , m_hasTimeout(hasTimeout)
-    , m_verbose(verbose)
-    , m_interestLifetime(interestLifetime)
-    , m_timeout(timeout)
-    , m_cmdSigner(m_keyChain)
+  DIFS(ndn::Name repoPrefix)
+  : m_repoPrefix(repoPrefix)
+    , m_useDigestSha256(false)
+    , m_freshnessPeriod(DEFAULT_FRESHNESS_PERIOD)
+    , m_interestLifetime(DEFAULT_INTEREST_LIFETIME)
+    , m_hasTimeout(false)
+    , m_timeout(0)
+    , m_blockSize(DEFAULT_BLOCK_SIZE)
+    , m_insertStream(nullptr)
+    , m_verbose(false)
+    , m_processId(0)
+    , m_checkPeriod(DEFAULT_CHECK_PERIOD)
+    , m_currentSegmentNo(0)
+    , m_isFinished(false)
     , m_scheduler(m_face.getIoService())
+    , m_cmdSigner(m_keyChain)
   {}
+
+  void
+  setRepoPrefix(ndn::Name repoPrefix);
 
   void
   setTimeOut(ndn::time::milliseconds timeout);
@@ -69,7 +90,7 @@ public:
   deleteFile(const ndn::Name& name);
 
   void
-  getFile(const ndn::Name& name, std::ofstream& os);
+  getFile(const ndn::Name& name, std::ostream& os);
 
   void
   putFile(const ndn::Name& name, std::istream& is);
@@ -204,38 +225,35 @@ private:
   putFileStartInsertCommand();
 
 private:
-  ndn::Face m_face;
-  ndn::Name repoPrefix;
-  ndn::Name m_dataPrefix;
   ndn::Name m_common_name;
-  ndn::Name ndnName;
-  bool m_verbose;
+  ndn::Name m_repoPrefix;
   bool m_useDigestSha256;
-  bool m_hasTimeout;
+  ndn::time::milliseconds m_freshnessPeriod; 
   ndn::time::milliseconds m_interestLifetime;
+  bool m_hasTimeout;
   ndn::time::milliseconds m_timeout;
-  int m_retryCount;
-  ndn::time::milliseconds m_freshness_period;
-
+  size_t m_blockSize;
+  std::istream* m_insertStream;
+  bool m_verbose;
+  uint64_t m_processId;
+  ndn::time::milliseconds m_checkPeriod;
+  size_t m_currentSegmentNo;
+  bool m_isFinished;
   std::string m_identityForData;
   std::string m_identityForCommand;
+  ndn::Name m_ndnName;
 
-  std::ofstream* m_os;
-  std::istream* insertStream;
-  
-  size_t m_blockSize;
-  size_t m_currentSegmentNo;
+  ndn::Name m_dataPrefix;
+  int m_retryCount;
+
+  std::ostream* m_os;
   size_t m_bytes;
 
-  ndn::time::milliseconds freshnessPeriod; 
-  ndn::time::milliseconds m_checkPeriod;
-  ndn::time::milliseconds interestLifetime;
   ndn::time::milliseconds timeout;
 
   ndn::KeyChain m_keyChain;
-  bool m_isFinished;
 
-  uint64_t m_processId;
+  ndn::Face m_face;
   ndn::Scheduler m_scheduler;
   using DataContainer = std::map<uint64_t, shared_ptr<ndn::Data>>;
   DataContainer m_data;

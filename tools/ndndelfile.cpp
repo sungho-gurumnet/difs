@@ -22,17 +22,6 @@ using std::placeholders::_2;
 
 static const int MAX_RETRY = 3;
 
-
-// void
-// NdnDelFile::run()
-// {
-//   Name name(m_dataName);
-
-//   deleteData(name);
-
-//   m_face.processEvents(m_timeout);
-// }
-
 int
 usage(const std::string& filename)
 {
@@ -45,7 +34,6 @@ usage(const std::string& filename)
             << "ndn-name: NDN Name prefix for Data to be read\n";
   return 1;
 }
-
 
 int
 main(int argc, char** argv)

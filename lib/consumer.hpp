@@ -15,7 +15,11 @@ namespace difs {
 
 class Consumer : boost::noncopyable {
   public:
-	Consumer(const repo::Manifest& manifest, std::ofstream& os);
+	Consumer(repo::Manifest& manifest, std::ostream& os)
+	: m_manifest(manifest)
+	, m_os(os)
+	, m_verbose(false)
+	{}
 
 	void
 	fetch();
@@ -28,15 +32,14 @@ class Consumer : boost::noncopyable {
 	void onDataCommandNack(const ndn::Interest& interest);
 
   private:
-	// std::map<int, std::tuple<const uint8_t*, size_t>> map;
-	std::ofstream& m_os;
-	std::map<int, const ndn::Block> map;
+	repo::Manifest m_manifest;
+	std::ostream& m_os;
 	bool m_verbose;
+	std::map<int, const ndn::Block> map;
 	int m_currentSegment;
 	int m_totalSize;
 	int m_retryCount;
 	ndn::Face m_face;
-	repo::Manifest m_manifest;
 };
 } // namespace difs
 

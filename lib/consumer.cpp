@@ -3,20 +3,14 @@
 
 using namespace difs;
 
-Consumer::Consumer(const repo::Manifest& manifest, std::ofstream& os) 
-	: m_manifest(manifest)
-	, m_os(os)
-	{}
-
 void
 Consumer::fetch()
 {
   auto repos = m_manifest.getRepos();
-  int end_block_id = m_manifest.getEndBlockId();
 
   for (auto iter = repos.begin(); iter != repos.end(); ++iter)
   {
-	for(int segment_id = iter->start; segment_id < iter->end; segment_id++) {
+	for(int segment_id = iter->start; segment_id <= iter->end; segment_id++) {
 		ndn::Interest interest(ndn::Name(iter->name).append("data")
 					.append(m_manifest.getName()).appendSegment(segment_id));
 
@@ -26,28 +20,29 @@ Consumer::fetch()
 								std::bind(&Consumer::onDataCommandTimeout, this, _1));
 	}
   }
+
+  m_face.processEvents();
 }
 
 void
 Consumer::onDataCommandResponse(const ndn::Interest& interest, const ndn::Data& data)
 {	
 	const auto& content = data.getContent();
+	
+    ndn::Name::Component segmentComponent = interest.getName().get(-1);
+    uint64_t segmentNo = segmentComponent.toSegment();
 
-	// TODO: seg num check && end num check
-	int num = 0, endNum = 10;
-	// map.insert(std::pair<int, std::tuple<const uint8_t*, size_t>>(num, std::make_tuple(content.value(), content.value_size())));
-	map.insert(std::pair<int, const ndn::Block>(num, content));
+    ndn::Name::Component endBlockComponent = data.getFinalBlock().value();
+    uint64_t endNo = endBlockComponent.toSegment();
 
-	std::streambuf* buf;
-	std::ostream m_os(buf);
-	if(num == endNum) {
+	map.insert(std::pair<int, const ndn::Block>(segmentNo, content));
+
+	if(map.size() - 1 == endNo) {
 		for(auto iter = map.begin(); iter != map.end(); iter++) {
+			// std::cout << iter->second.value() << std::endl;
 			m_os.write(reinterpret_cast<const char *>(iter->second.value()), iter->second.value_size());
 			m_totalSize += iter->second.value_size();
 			m_currentSegment += 1;
-	  		if (m_verbose) {
-	    		std::cerr << "LOG: received data = " << data.getName() << std::endl;
-	  		}
 		}
 
 		std::cerr << "INFO: End of file is reached" << std::endl;

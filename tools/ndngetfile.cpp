@@ -119,8 +119,11 @@ main(int argc, char** argv)
     buf = std::cout.rdbuf();
   }
 
+  std::ostream os(buf);
+
   difs::DIFS difs(repoPrefix, verbose, interestLifetime, timeout);
-  difs.getFile(name, of);
+  std::cout << name << std::endl;
+  difs.getFile(name, os);
 
   try
   {
