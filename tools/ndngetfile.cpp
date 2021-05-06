@@ -121,8 +121,7 @@ main(int argc, char** argv)
 
   std::ostream os(buf);
 
-  difs::DIFS difs(repoPrefix, verbose, interestLifetime, timeout);
-  std::cout << name << std::endl;
+  difs::DIFS difs(repoPrefix, interestLifetime, timeout, verbose);
   difs.getFile(name, os);
 
   try

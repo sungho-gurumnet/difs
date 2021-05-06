@@ -318,7 +318,7 @@ DIFS::onPutFileRegisterSuccess(const Name& prefix)
 void
 DIFS::onPutFileRegisterFailed(const ndn::Name& prefix, const std::string& reason)
 {
-
+  BOOST_THROW_EXCEPTION(std::runtime_error("onRegisterFailed: " + reason));
 }
 
 void
@@ -353,7 +353,8 @@ DIFS::onPutFileInsertCommandResponse(const ndn::Interest& interest, const ndn::D
   RepoCommandResponse response(data.getContent().blockFromValue());
   auto statusCode = response.getCode();
   if (statusCode >= 400) {
-
+    BOOST_THROW_EXCEPTION(std::runtime_error("insert command failed with code: " + 
+                                              boost::lexical_cast<std::string>(statusCode)));
   }
   m_processId = response.getProcessId();
 
@@ -419,6 +420,8 @@ DIFS::onPutFileCheckCommandResponse(const ndn::Interest& interest, const ndn::Da
   RepoCommandResponse response(data.getContent().blockFromValue());
   auto statusCode = response.getCode();
   if (statusCode >= 400) {
+    BOOST_THROW_EXCEPTION(std::runtime_error("Insert check command failed with code: " + 
+                                              boost::lexical_cast<std::string>(statusCode)));
   }
 
   if (m_isFinished) {
@@ -488,7 +491,7 @@ DIFS::putFilePrepareNextData(uint64_t referenceSegmentNo)
     auto readSize = boost::iostreams::read(*m_insertStream,
                                            reinterpret_cast<char*>(buffer), m_blockSize);
     if (readSize <= 0) {
-      return;
+      BOOST_THROW_EXCEPTION(std::runtime_error("Error reading from the input stream"));
     }
 
     auto data = std::make_shared<ndn::Data>(Name(m_dataPrefix).appendSegment(m_currentSegmentNo));

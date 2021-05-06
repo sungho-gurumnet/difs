@@ -23,15 +23,9 @@ public:
     , m_cmdSigner(m_keyChain)
   {}
 
-  DIFS(const std::string& common_name)
+  DIFS(const std::string& common_name, int interestLifetime, int timeout, bool verbose)
   : m_common_name(common_name)
-    , m_scheduler(m_face.getIoService())
-    , m_cmdSigner(m_keyChain)
-  {}
-
-  DIFS(const std::string& common_name, bool verbose, int interestLitfetime, int timeout)
-  : m_common_name(common_name)
-    , m_interestLifetime(m_interestLifetime)
+    , m_interestLifetime(interestLifetime)
     , m_timeout(timeout)
     , m_verbose(verbose)
     , m_scheduler(m_face.getIoService())
