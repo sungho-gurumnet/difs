@@ -1,7 +1,9 @@
 FROM ubuntu:20.04
 LABEL maintainer "Peter Gusev <peter@remap.ucla.edu>"
 ARG VERSION_CXX=ndn-cxx-0.7.1
-ARG VERSION_NFD=NFD-0.7.0
+ARG VERSION_NFD=NFD-0.7.1
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Seoul
 
 # install tools
 RUN apt update \
@@ -18,7 +20,6 @@ RUN apt install -y python libsqlite3-dev libboost-all-dev pkg-config libssl-dev 
 # install ndn-cxx
 RUN git clone -b upgrade-0.7.1 https://github.com/uni2u/difs-cxx.git ndn-cxx\
     && cd ndn-cxx \
-    && git checkout $VERSION_DIFS_CXX \
     && ./waf configure --with-examples \
     && ./waf \
     && ./waf install \
